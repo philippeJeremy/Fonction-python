@@ -1,10 +1,14 @@
 import os
+import smtplib
 import paramiko
 import pandas as pd
-import sqlalchemy.exc as sa_exc
+from email import encoders
 from ftplib import FTP, error_perm
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 from sqlalchemy import create_engine
 from paramiko import SFTPError, SSHException
+from email.mime.multipart import MIMEMultipart
 
 class DatabaseClient:
     def __init__(self, driver: str, identifiant: str, password: str, host: str, database: str):
@@ -210,3 +214,83 @@ class SFTPClient:
         if self.transport:
             self.transport.close()
             print("Transport SFTP fermé.")
+            
+class EmailClient:
+    def __init__(self, smtp_server, smtp_port, email_user, email_password, smtp_tls=True):
+        """
+        Initialise le client email.
+
+        Args:
+            smtp_server (str): Adresse du serveur SMTP (ex: smtp.gmail.com).
+            smtp_port (int): Port SMTP (ex: 587 pour TLS).
+            email_user (str): Adresse email de l'expéditeur.
+            email_password (str): Mot de passe de l'email ou un token d'authentification.
+            smtp_tls (bool): Utiliser TLS pour la connexion sécurisée. Par défaut, True.
+        """
+        self.smtp_server = smtp_server
+        self.smtp_port = smtp_port
+        self.email_user = email_user
+        self.email_password = email_password
+        self.smtp_tls = smtp_tls
+        self.server = None
+
+    def connecter(self):
+        """Établit une connexion sécurisée au serveur SMTP."""
+        try:
+            self.server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            self.server.ehlo()
+            if self.smtp_tls:
+                self.server.starttls()
+                self.server.ehlo()
+            self.server.login(self.email_user, self.email_password)
+            print("Connexion au serveur SMTP établie avec succès.")
+        except smtplib.SMTPException as e:
+            print(f"Erreur lors de la connexion au serveur SMTP: {e}")
+
+    def envoyer_email(self, destinataires, sujet, corps_message, fichier_joint=None):
+        """
+        Envoie un email à un ou plusieurs destinataires avec ou sans pièce jointe.
+
+        Args:
+            destinataires (str ou list): Adresse email ou liste d'adresses email des destinataires.
+            sujet (str): Sujet de l'email.
+            corps_message (str): Contenu de l'email.
+            fichier_joint (str, facultatif): Chemin vers un fichier à joindre. Par défaut, None.
+        """
+        if isinstance(destinataires, str):
+            destinataires = [destinataires]
+
+        # Créer l'objet email
+        email = MIMEMultipart()
+        email['From'] = self.email_user
+        email['To'] = ', '.join(destinataires)
+        email['Subject'] = sujet
+
+        # Attacher le corps du message
+        email.attach(MIMEText(corps_message, 'plain'))
+
+        # Ajout d'une pièce jointe si spécifiée
+        if fichier_joint:
+            try:
+                with open(fichier_joint, "rb") as attachment:
+                    part = MIMEBase('application', 'octet-stream')
+                    part.set_payload(attachment.read())
+                encoders.encode_base64(part)
+                part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(fichier_joint)}')
+                email.attach(part)
+                print(f"Pièce jointe '{fichier_joint}' ajoutée avec succès.")
+            except Exception as e:
+                print(f"Erreur lors de l'ajout de la pièce jointe: {e}")
+
+        # Envoi de l'email
+        try:
+            self.server.sendmail(self.email_user, destinataires, email.as_string())
+            print(f"Email envoyé avec succès à {', '.join(destinataires)}.")
+        except smtplib.SMTPException as e:
+            print(f"Erreur lors de l'envoi de l'email: {e}")
+
+    def deconnecter(self):
+        """Ferme la connexion au serveur SMTP."""
+        if self.server:
+            self.server.quit()
+            print("Déconnexion du serveur SMTP.")

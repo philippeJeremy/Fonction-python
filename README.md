@@ -4,7 +4,7 @@ Ce projet contient deux classes Python, DatabaseClient et FTPClient, qui permett
 Gérer des connexions à des bases de données (PostgreSQL, MySQL, SQL Server) et exécuter des requêtes SQL.
 Télécharger des fichiers via FTP, avec la possibilité de récupérer le dernier fichier modifié dans un répertoire FTP.
 
-## Exemple d'utilisation
+## Exemple d'utilisation DatabaseClient
 
 from fonction import DatabaseClient
 
@@ -27,7 +27,7 @@ print(df)
 # Fermeture de la connexion
 client_db.deconnecter()
 
-## Exemple d'utilisation
+## Exemple d'utilisation FTPClient
 
 from fonction import FTPClient
 
@@ -57,7 +57,7 @@ client_ftp.telecharger_fichier(
 # Déconnexion du serveur FTP
 client_ftp.deconnecter()
 
-## Exemple d'utilisation
+## Exemple d'utilisation SFTPClient
 
 from fonction import SFTPClient 
 
@@ -75,3 +75,27 @@ dernier_fichier = sftp_client.trouver_dernier_fichier('/remote/directory')
 
 # Déconnexion du serveur SFTP
 sftp_client.deconnecter()
+
+## Exemple d'utilisation EmailClient
+
+# Configuration pour Gmail (par exemple)
+email_client = EmailClient(smtp_server="smtp.gmail.com", smtp_port=587, email_user="tonemail@gmail.com", email_password="tonmotdepasse")
+
+email_client.connecter()
+
+# Envoi d'un email avec pièce jointe à plusieurs destinataires
+email_client.envoyer_email(
+    destinataires=["destinataire1@example.com", "destinataire2@example.com"],
+    sujet="Exemple d'email avec pièce jointe",
+    corps_message="Bonjour, voici un fichier en pièce jointe.",
+    fichier_joint="chemin/vers/fichier.pdf"
+)
+
+email_client.deconnecter()
+
+## Les différents services de messagerie nécessitent différentes configurations SMTP :
+
+Gmail : smtp.gmail.com, port 587 (ou 465 pour SSL)
+Outlook : smtp.office365.com, port 587
+Yahoo : smtp.mail.yahoo.com, port 465 ou 587
+ProtonMail : 127.0.0.1 (si configuration via bridge ProtonMail)
