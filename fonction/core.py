@@ -181,7 +181,13 @@ class SFTPClient:
             print(f"Erreur lors de la connexion SFTP: {e}")
 
     def telecharger_fichier(self, chemin_serveur, nom_fichier_serveur, chemin_local='.', nom_fichier_local=None):
-        """Télécharge un fichier depuis le serveur SFTP."""
+        """Télécharge un fichier depuis le serveur SFTP.
+        
+        :param chemin_serveur: Répertoire sur le serveur SFTP
+        :param nom_fichier_serveur: Nom du fichier à télécharger (si None, récupère le dernier fichier modifié)
+        :param chemin_local: Chemin du répertoire local pour enregistrer le fichier (par défaut dans le répertoire courant)
+        :param nom_fichier_local: Nom du fichier local (par défaut même nom que le fichier FTP)
+        """
         if nom_fichier_local is None:
             nom_fichier_local = nom_fichier_serveur  # Si aucun nom de fichier local n'est spécifié
 
