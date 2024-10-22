@@ -90,7 +90,7 @@ email_client.envoyer_email(
     destinataires=["destinataire1@example.com", "destinataire2@example.com"],
     sujet="Exemple d'email avec pièce jointe",
     corps_message="Bonjour, voici un fichier en pièce jointe.",
-    fichier_joint="chemin/vers/fichier.pdf"
+    fichiers_joints=["chemin/vers/fichier.pdf"]
 )
 
 email_client.deconnecter()

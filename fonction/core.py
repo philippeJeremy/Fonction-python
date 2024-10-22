@@ -253,7 +253,7 @@ class EmailClient:
         except smtplib.SMTPException as e:
             print(f"Erreur lors de la connexion au serveur SMTP: {e}")
 
-    def envoyer_email(self, destinataires, sujet, corps_message, fichier_joint=None):
+    def envoyer_email(self, destinataires, sujet, corps_message, fichiers_joints=None):
         """
         Envoie un email à un ou plusieurs destinataires avec ou sans pièce jointe.
 
@@ -261,7 +261,7 @@ class EmailClient:
             destinataires (str ou list): Adresse email ou liste d'adresses email des destinataires.
             sujet (str): Sujet de l'email.
             corps_message (str): Contenu de l'email.
-            fichier_joint (str, facultatif): Chemin vers un fichier à joindre. Par défaut, None.
+            fichiers_joints (list, facultatif): Liste des chemins vers des fichiers à joindre. Par défaut, None.
         """
         if isinstance(destinataires, str):
             destinataires = [destinataires]
@@ -275,18 +275,19 @@ class EmailClient:
         # Attacher le corps du message
         email.attach(MIMEText(corps_message, 'plain'))
 
-        # Ajout d'une pièce jointe si spécifiée
-        if fichier_joint:
-            try:
-                with open(fichier_joint, "rb") as attachment:
-                    part = MIMEBase('application', 'octet-stream')
-                    part.set_payload(attachment.read())
-                encoders.encode_base64(part)
-                part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(fichier_joint)}')
-                email.attach(part)
-                print(f"Pièce jointe '{fichier_joint}' ajoutée avec succès.")
-            except Exception as e:
-                print(f"Erreur lors de l'ajout de la pièce jointe: {e}")
+        # Ajout des pièces jointes si spécifiées
+        if fichiers_joints:
+            for fichier_joint in fichiers_joints:
+                try:
+                    with open(fichier_joint, "rb") as attachment:
+                        part = MIMEBase('application', 'octet-stream')
+                        part.set_payload(attachment.read())
+                    encoders.encode_base64(part)
+                    part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(fichier_joint)}')
+                    email.attach(part)
+                    print(f"Pièce jointe '{fichier_joint}' ajoutée avec succès.")
+                except Exception as e:
+                    print(f"Erreur lors de l'ajout de la pièce jointe '{fichier_joint}': {e}")
 
         # Envoi de l'email
         try:
