@@ -181,25 +181,22 @@ class SFTPClient:
             print(f"Erreur lors de la connexion SFTP: {e}")
 
     def telecharger_fichier(self, chemin_serveur, nom_fichier_serveur, chemin_local='.', nom_fichier_local=None):
-        """Télécharge un fichier depuis le serveur SFTP.
-        
-        :param chemin_serveur: Répertoire sur le serveur SFTP
-        :param nom_fichier_serveur: Nom du fichier à télécharger (si None, récupère le dernier fichier modifié)
-        :param chemin_local: Chemin du répertoire local pour enregistrer le fichier (par défaut dans le répertoire courant)
-        :param nom_fichier_local: Nom du fichier local (par défaut même nom que le fichier FTP)
-        """
         if nom_fichier_local is None:
-            nom_fichier_local = nom_fichier_serveur  # Si aucun nom de fichier local n'est spécifié
+            nom_fichier_local = nom_fichier_serveur
 
         chemin_local_fichier = os.path.join(chemin_local, nom_fichier_local)
 
         try:
-            self.sftp.get(os.path.join(chemin_serveur, nom_fichier_serveur), chemin_local_fichier)
+            # Ajouter chdir pour changer le répertoire
+            self.sftp.chdir(chemin_serveur)
+
+            # Utiliser la méthode get directement
+            self.sftp.get(nom_fichier_serveur, chemin_local_fichier)
             print(f"Fichier '{nom_fichier_serveur}' téléchargé avec succès sous '{chemin_local_fichier}'.")
-        except SFTPError as e:
-            print(f"Erreur lors du téléchargement du fichier: {e}")
         except Exception as e:
+            import traceback
             print(f"Erreur: {e}")
+            traceback.print_exc()
 
     def trouver_dernier_fichier(self, chemin_serveur):
         """Trouve le dernier fichier modifié dans un répertoire SFTP."""
