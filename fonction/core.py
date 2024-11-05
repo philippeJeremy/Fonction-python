@@ -72,7 +72,7 @@ class DatabaseClient:
         except Exception as e:
             print(f"Erreur lors de l'exécution de la requête : {e}")
             raise
-    
+
 
 class FTPClient:
     def __init__(self, ftp_server, ftp_user, ftp_password):
@@ -121,8 +121,8 @@ class FTPClient:
             if nom_du_fichier_ftp is None:
                 nom_du_fichier_ftp = self.trouver_dernier_fichier()
                 if nom_du_fichier_ftp is None:
-                    raise Exception(f"Aucun fichier trouvé dans le répertoire {nom_du_repertoire_ftp}")
-                print(f"Fichier le plus récent trouvé : {nom_du_fichier_ftp}")
+                    print(f"Aucun fichier trouvé dans le répertoire {nom_du_repertoire_ftp}")
+                    return  # Sortir de la fonction si aucun fichier n'est trouvé
             
             # Utilise le même nom pour le fichier local si non spécifié
             if nom_du_fichier_local is None:
@@ -130,6 +130,11 @@ class FTPClient:
 
             # Crée le chemin complet pour le fichier local
             nouveau_nom_fichier_local = os.path.join(chemin_repertoire_local, nom_du_fichier_local)
+
+            # Vérifier si le fichier existe sur le serveur avant d'ouvrir le fichier local
+            if not self.verifier_existence_fichier(nom_du_fichier_ftp):
+                print(f"Le fichier {nom_du_fichier_ftp} n'existe pas sur le serveur FTP.")
+                return
 
             # Télécharge le fichier
             with open(nouveau_nom_fichier_local, "wb") as fichier_local:
@@ -159,7 +164,16 @@ class FTPClient:
         except Exception as e:
             print(f"Erreur lors de la recherche du dernier fichier modifié: {e}")
             return None
-        
+
+    def verifier_existence_fichier(self, nom_du_fichier):
+        """Vérifie si un fichier existe sur le serveur FTP."""
+        try:
+            fichiers = [f[0] for f in self.ftp.mlsd() if f[1]['type'] == 'file']
+            return nom_du_fichier in fichiers
+        except Exception as e:
+            print(f"Erreur lors de la vérification de l'existence du fichier: {e}")
+            return False
+
 class SFTPClient:
     def __init__(self, sftp_server, sftp_user, sftp_password):
         self.sftp_server = sftp_server
@@ -181,18 +195,32 @@ class SFTPClient:
             print(f"Erreur lors de la connexion SFTP: {e}")
 
     def telecharger_fichier(self, chemin_serveur, nom_fichier_serveur, chemin_local='.', nom_fichier_local=None):
+        """
+        Télécharge un fichier depuis le serveur SFTP. Si le fichier distant n'existe pas,
+        le fichier local ne sera pas créé ou modifié.
+
+        :param chemin_serveur: Répertoire distant sur le serveur SFTP
+        :param nom_fichier_serveur: Nom du fichier distant à télécharger
+        :param chemin_local: Répertoire local pour enregistrer le fichier (par défaut, le répertoire courant)
+        :param nom_fichier_local: Nom du fichier local (par défaut, même nom que le fichier distant)
+        """
         if nom_fichier_local is None:
             nom_fichier_local = nom_fichier_serveur
 
         chemin_local_fichier = os.path.join(chemin_local, nom_fichier_local)
 
         try:
-            # Ajouter chdir pour changer le répertoire
-            self.sftp.chdir(chemin_serveur)
-
-            # Utiliser la méthode get directement
-            self.sftp.get(nom_fichier_serveur, chemin_local_fichier)
+            # Vérifie si le fichier existe dans le répertoire distant
+            if not self.verifier_existence_fichier(chemin_serveur, nom_fichier_serveur):
+                print(f"Le fichier '{nom_fichier_serveur}' n'existe pas dans le répertoire '{chemin_serveur}' sur le serveur SFTP.")
+                return  # Sortir de la fonction sans télécharger ni créer le fichier local
+            
+            # Télécharge le fichier
+            self.sftp.get(os.path.join(chemin_serveur, nom_fichier_serveur), chemin_local_fichier)
             print(f"Fichier '{nom_fichier_serveur}' téléchargé avec succès sous '{chemin_local_fichier}'.")
+        
+        except SFTPError as e:
+            print(f"Erreur SFTP lors du téléchargement du fichier: {e}")
         except Exception as e:
             import traceback
             print(f"Erreur: {e}")
@@ -209,6 +237,22 @@ class SFTPClient:
         except Exception as e:
             print(f"Erreur: {e}")
 
+    def verifier_existence_fichier(self, chemin_serveur, nom_fichier_serveur):
+        """
+        Vérifie si un fichier existe sur le serveur SFTP.
+
+        :param chemin_serveur: Répertoire distant sur le serveur SFTP
+        :param nom_fichier_serveur: Nom du fichier à vérifier
+        :return: True si le fichier existe, sinon False
+        """
+        try:
+            # Obtenir la liste des fichiers dans le répertoire
+            fichiers = [f.filename for f in self.sftp.listdir_attr(chemin_serveur)]
+            return nom_fichier_serveur in fichiers
+        except SFTPError as e:
+            print(f"Erreur lors de la vérification de l'existence du fichier: {e}")
+            return False
+
     def deconnecter(self):
         """Déconnecte le client SFTP."""
         if self.sftp:
@@ -217,84 +261,3 @@ class SFTPClient:
         if self.transport:
             self.transport.close()
             print("Transport SFTP fermé.")
-            
-class EmailClient:
-    def __init__(self, smtp_server, smtp_port, email_user, email_password, smtp_tls=True):
-        """
-        Initialise le client email.
-
-        Args:
-            smtp_server (str): Adresse du serveur SMTP (ex: smtp.gmail.com).
-            smtp_port (int): Port SMTP (ex: 587 pour TLS).
-            email_user (str): Adresse email de l'expéditeur.
-            email_password (str): Mot de passe de l'email ou un token d'authentification.
-            smtp_tls (bool): Utiliser TLS pour la connexion sécurisée. Par défaut, True.
-        """
-        self.smtp_server = smtp_server
-        self.smtp_port = smtp_port
-        self.email_user = email_user
-        self.email_password = email_password
-        self.smtp_tls = smtp_tls
-        self.server = None
-
-    def connecter(self):
-        """Établit une connexion sécurisée au serveur SMTP."""
-        try:
-            self.server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            self.server.ehlo()
-            if self.smtp_tls:
-                self.server.starttls()
-                self.server.ehlo()
-            self.server.login(self.email_user, self.email_password)
-            print("Connexion au serveur SMTP établie avec succès.")
-        except smtplib.SMTPException as e:
-            print(f"Erreur lors de la connexion au serveur SMTP: {e}")
-
-    def envoyer_email(self, destinataires, sujet, corps_message, fichiers_joints=None):
-        """
-        Envoie un email à un ou plusieurs destinataires avec ou sans pièce jointe.
-
-        Args:
-            destinataires (str ou list): Adresse email ou liste d'adresses email des destinataires.
-            sujet (str): Sujet de l'email.
-            corps_message (str): Contenu de l'email.
-            fichiers_joints (list, facultatif): Liste des chemins vers des fichiers à joindre. Par défaut, None.
-        """
-        if isinstance(destinataires, str):
-            destinataires = [destinataires]
-
-        # Créer l'objet email
-        email = MIMEMultipart()
-        email['From'] = self.email_user
-        email['To'] = ', '.join(destinataires)
-        email['Subject'] = sujet
-
-        # Attacher le corps du message
-        email.attach(MIMEText(corps_message, 'plain'))
-
-        # Ajout des pièces jointes si spécifiées
-        if fichiers_joints:
-            for fichier_joint in fichiers_joints:
-                try:
-                    with open(fichier_joint, "rb") as attachment:
-                        part = MIMEBase('application', 'octet-stream')
-                        part.set_payload(attachment.read())
-                    encoders.encode_base64(part)
-                    part.add_header('Content-Disposition', f'attachment; filename={os.path.basename(fichier_joint)}')
-                    email.attach(part)
-                    print(f"Pièce jointe '{fichier_joint}' ajoutée avec succès.")
-                except Exception as e:
-                    print(f"Erreur lors de l'ajout de la pièce jointe '{fichier_joint}': {e}")
-
-        # Envoi de l'email
-        try:
-            self.server.sendmail(self.email_user, destinataires, email.as_string())
-            print(f"Email envoyé avec succès à {', '.join(destinataires)}.")
-        except smtplib.SMTPException as e:
-            print(f"Erreur lors de l'envoi de l'email: {e}")
-
-    def deconnecter(self):
-        """Ferme la connexion au serveur SMTP."""
-        if self.server:
-            self.server.quit()
-            print("Déconnexion du serveur SMTP.")
